@@ -92,34 +92,48 @@ function setProgress(pct) {
 }
 
 /* ---------------------------------------------------------------------------
-   بررسی وجود دوربین، بدون باز کردن جریان تصویر (getUserMedia)
+   درخواست صریح دسترسی دوربین (پیام فارسی مناسب در صورت رد شدن)
    ----------------------------------------------------------------------------
-   نکته‌ی مهم/رفع اشکال: نسخه‌ی قبلی این تابع یک‌بار خودش getUserMedia را صدا
-   می‌زد (فقط برای گرفتن مجوز) و بلافاصله همان جریان را stop() می‌کرد، و بعد
-   MindAR دوباره و جداگانه دوربین را باز می‌کرد. این الگو (باز کردن و فوراً
-   بستن دوربین، سپس باز کردن دوباره) در بسیاری از مرورگرهای موبایل (به‌خصوص
-   iOS Safari و برخی نسخه‌های Chrome اندروید) باعث می‌شود درخواست دومِ MindAR
-   در وضعیتی «گیر کند»: ردیابی مارکر کار می‌کند (چون از فریم‌های تصویر برای
-   پردازش استفاده می‌شود) اما خودِ تگ <video> هرگز پخش واقعی را نشان نمی‌دهد و
-   به‌جایش یک پس‌زمینه‌ی خاکستری/تیره‌ی ثابت دیده می‌شود. برای رفع این مشکل،
-   دیگر دوربین را از قبل باز و بسته نمی‌کنیم؛ فقط با enumerateDevices (که به
-   مجوز نیاز ندارد و هیچ جریانی باز نمی‌کند) وجود دوربین را بررسی می‌کنیم و
-   اجازه می‌دهیم MindAR تنها و یگانه درخواست getUserMedia را خودش انجام دهد.
+   نکته‌ی مهم/رفع اشکال: در یک نسخه‌ی قبلی، این تابع بلافاصله بعد از گرفتن
+   مجوز، استریم را stop() می‌کرد و بعد MindAR جداگانه دوباره دوربین را باز
+   می‌کرد؛ همین "باز و بستنِ سریع" باعث می‌شد در برخی مرورگرهای موبایل ویدیوی
+   زنده نمایش داده نشود (پس‌زمینه‌ی خاکستری). اما حذفِ کاملِ این درخواست هم
+   خودش باعث شد که در برخی دستگاه‌ها بارگذاری هرگز کامل نشود. راه‌حل درست:
+   درخواست اولیه را نگه می‌داریم (چون بدون آن روند بارگذاری MindAR در برخی
+   مرورگرها به مشکل می‌خورد)، ولی دیگر فوراً stop() نمی‌کنیم — استریم را زنده
+   نگه می‌داریم تا وقتی MindAR واقعاً آماده شود (رویداد arReady)، و فقط در
+   آن لحظه (یا در صورت خطا/تایم‌اوت، برای پاک‌سازی) آزادش می‌کنیم.
 --------------------------------------------------------------------------- */
-async function checkCameraAvailability() {
+let preflightStream = null;
+
+async function requestCameraPermission() {
   try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const hasCamera = devices.some((d) => d.kind === "videoinput");
-    if (!hasCamera) {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false,
+    });
+    preflightStream = stream; // عمداً اینجا stop نمی‌شود؛ نگاه کن به releasePreflightStream()
+    state.cameraGranted = true;
+    return true;
+  } catch (err) {
+    state.cameraGranted = false;
+    if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
+      showError(
+        "دسترسی دوربین رد شد. برای استفاده از واقعیت افزوده، لطفاً از تنظیمات مرورگر به این سایت اجازه دسترسی به دوربین بدهید و دوباره تلاش کنید."
+      );
+    } else if (err && err.name === "NotFoundError") {
       showError("هیچ دوربینی روی این دستگاه پیدا نشد.");
-      return false;
+    } else {
+      showError("امکان دسترسی به دوربین وجود نداشت. لطفاً دوباره تلاش کنید.");
     }
-    return true;
-  } catch (e) {
-    // اگر enumerateDevices در دسترس نبود یا خطا داد، به MindAR اجازه می‌دهیم
-    // خودش تلاش کند؛ خطای واقعی دوربین (رد مجوز و غیره) از طریق رویداد
-    // arError در initScene() نمایش داده می‌شود.
-    return true;
+    return false;
+  }
+}
+
+function releasePreflightStream() {
+  if (preflightStream) {
+    preflightStream.getTracks().forEach((track) => track.stop());
+    preflightStream = null;
   }
 }
 
@@ -150,7 +164,7 @@ function resetModelTransform() {
 /* ---------------------------------------------------------------------------
    راه‌اندازی صحنه MindAR پس از آماده شدن مدل و گرفتن مجوز دوربین
 --------------------------------------------------------------------------- */
-function initScene() {
+function initScene(clearBootWatchdog) {
   const sceneEl = el("ar-scene");
   const modelEntity = el("eye-model-entity");
   const targetEntity = el("eye-target");
@@ -205,6 +219,7 @@ function initScene() {
   // اینکه کاربر برای همیشه پشت صفحه‌ی بارگذاری بماند.
   const readyTimeout = setTimeout(() => {
     if (!el("loading-screen").classList.contains("hidden")) {
+      releasePreflightStream();
       showError(
         "بارگذاری واقعیت افزوده بیش از حد طول کشید. مطمئن شوید فایل assets/targets.mind به‌درستی ساخته و جایگزین شده است، سپس دوباره تلاش کنید.",
         { showRetry: true }
@@ -214,6 +229,10 @@ function initScene() {
 
   sceneEl.addEventListener("arReady", () => clearTimeout(readyTimeout), { once: true });
   sceneEl.addEventListener("arError", () => clearTimeout(readyTimeout), { once: true });
+  sceneEl.addEventListener("arReady", () => clearBootWatchdog(), { once: true });
+  sceneEl.addEventListener("arError", () => clearBootWatchdog(), { once: true });
+  sceneEl.addEventListener("arReady", () => releasePreflightStream(), { once: true });
+  sceneEl.addEventListener("arError", () => releasePreflightStream(), { once: true });
 
   // شروع MindAR (چون autoStart:false گذاشته‌ایم، خودمان کنترل شروع را داریم)
   const startMindAR = () => {
@@ -257,20 +276,41 @@ async function boot() {
     return;
   }
 
-  setLoadingText("در حال آماده‌سازی دوربین...");
+  setLoadingText("در حال درخواست دسترسی دوربین...");
   setProgress(15);
 
-  const hasCamera = await checkCameraAvailability();
-  if (!hasCamera) return;
+  const granted = await requestCameraPermission();
+  if (!granted) return;
 
   setLoadingText("در حال بارگذاری مدل سه‌بعدی...");
   setProgress(40);
 
+  /* -------------------------------------------------------------------------
+     محافظ کلیِ کل فرآیند بارگذاری (رفع اشکال)
+     ---------------------------------------------------------------------
+     قبلاً یک تایم‌اوت فقط داخل initScene() تعریف شده بود، یعنی اگر صحنه‌ی
+     A-Frame اصلاً به رویداد "loaded" نمی‌رسید (مثلاً چون assets/targets.mind
+     هنوز فایل placeholder است یا مسیر assets/u.glb اشتباه است)، initScene()
+     هرگز اجرا نمی‌شد و در نتیجه هیچ تایم‌اوتی هم فعال نمی‌شد — کاربر برای
+     همیشه پشت صفحه‌ی «در حال بارگذاری مدل سه‌بعدی...» می‌ماند. این محافظِ
+     بیرونی از همین‌جا (قبل از منتظر ماندن برای رویداد "loaded") شروع می‌شود
+     و مستقل از initScene() است.
+  --------------------------------------------------------------------------- */
+  const bootWatchdog = setTimeout(() => {
+    if (!el("loading-screen").classList.contains("hidden")) {
+      releasePreflightStream();
+      showError(
+        "بارگذاری بیش از حد طول کشید. معمولاً یعنی assets/targets.mind هنوز فایل واقعیِ کامپایل‌شده نیست (یا مسیر/نام assets/u.glb اشتباه است). مطمئن شوید هر دو فایل واقعی هستند و روی GitHub Pages آپلود شده‌اند، سپس دوباره تلاش کنید."
+      );
+    }
+  }, 20000);
+  const clearBootWatchdog = () => clearTimeout(bootWatchdog);
+
   const sceneEl = el("ar-scene");
   if (sceneEl.hasLoaded) {
-    initScene();
+    initScene(clearBootWatchdog);
   } else {
-    sceneEl.addEventListener("loaded", initScene);
+    sceneEl.addEventListener("loaded", () => initScene(clearBootWatchdog));
   }
 }
 
