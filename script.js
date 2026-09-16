@@ -92,32 +92,18 @@ function setProgress(pct) {
 }
 
 /* ---------------------------------------------------------------------------
-   درخواست صریح دسترسی دوربین (پیام فارسی مناسب در صورت رد شدن)
-   MindAR خودش هم دوربین را می‌گیرد، اما یک درخواست صریح جلوتر باعث می‌شود
-   بتوانیم پیام خطای فارسی دقیق نشان دهیم و دوربین پشت را صریحاً انتخاب کنیم.
+   بررسی وضعیت مجوز دوربین (فقط برای پیام‌دهی بهتر - هیچ استریمی خودمان
+   نمی‌گیریم). خود MindAR مسئول باز کردن دوربین است؛ گرفتن یک استریم جداگانه
+   قبل از آن باعث تداخل/سیاه‌شدن تصویر دوربین در برخی گوشی‌ها (خصوصاً آیفون)
+   می‌شود، پس عمداً این کار را نمی‌کنیم.
 --------------------------------------------------------------------------- */
-async function requestCameraPermission() {
+async function checkCameraPermissionState() {
+  if (!navigator.permissions || !navigator.permissions.query) return "unknown";
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
-      audio: false,
-    });
-    // فقط برای گرفتن مجوز لازم بود؛ MindAR جریان تصویر خودش را جداگانه باز می‌کند.
-    stream.getTracks().forEach((track) => track.stop());
-    state.cameraGranted = true;
-    return true;
-  } catch (err) {
-    state.cameraGranted = false;
-    if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
-      showError(
-        "دسترسی دوربین رد شد. برای استفاده از واقعیت افزوده، لطفاً از تنظیمات مرورگر به این سایت اجازه دسترسی به دوربین بدهید و دوباره تلاش کنید."
-      );
-    } else if (err && err.name === "NotFoundError") {
-      showError("هیچ دوربینی روی این دستگاه پیدا نشد.");
-    } else {
-      showError("امکان دسترسی به دوربین وجود نداشت. لطفاً دوباره تلاش کنید.");
-    }
-    return false;
+    const status = await navigator.permissions.query({ name: "camera" });
+    return status.state; // "granted" | "denied" | "prompt"
+  } catch (e) {
+    return "unknown";
   }
 }
 
@@ -192,7 +178,7 @@ function initScene() {
 
   sceneEl.addEventListener("arError", () => {
     showError(
-      "این مرورگر از قابلیت واقعیت افزوده پشتیبانی نمی‌کند. لطفاً از Chrome یا Safari استفاده کنید."
+      "راه‌اندازی دوربین یا واقعیت افزوده ناموفق بود. اگر پیام درخواست دسترسی دوربین را دیدید، «Allow/اجازه بده» را بزنید؛ در غیر این صورت از آخرین نسخه‌ی Chrome یا Safari استفاده کنید."
     );
   });
 
@@ -255,14 +241,20 @@ async function boot() {
     return;
   }
 
-  setLoadingText("در حال درخواست دسترسی دوربین...");
-  setProgress(15);
-
-  const granted = await requestCameraPermission();
-  if (!granted) return;
+  // اگر کاربر قبلاً صراحتاً دسترسی دوربین را رد کرده، همین ابتدا پیام
+  // مناسب را نشان می‌دهیم؛ در غیر این صورت اجازه می‌دهیم خود MindAR
+  // درخواست دسترسی را مطرح کند (برای جلوگیری از گرفتن دو استریم همزمان
+  // از دوربین که در برخی گوشی‌ها باعث سیاه‌ماندن تصویر می‌شود).
+  const permissionState = await checkCameraPermissionState();
+  if (permissionState === "denied") {
+    showError(
+      "دسترسی دوربین رد شده است. لطفاً از تنظیمات مرورگر به این سایت اجازه دسترسی به دوربین بدهید و دوباره تلاش کنید."
+    );
+    return;
+  }
 
   setLoadingText("در حال بارگذاری مدل سه‌بعدی...");
-  setProgress(40);
+  setProgress(30);
 
   const sceneEl = el("ar-scene");
   if (sceneEl.hasLoaded) {
