@@ -16,11 +16,12 @@
   <!-- ===================== LOADING SCREEN ===================== -->
   <div id="loading-screen">
     <div class="loading-inner">
-      <div class="eye-spinner">
+      <div class="eye-spinner hidden" id="loading-spinner">
         <div class="eye-spinner-iris"></div>
       </div>
-      <p id="loading-text">در حال بارگذاری مدل سه‌بعدی...</p>
-      <div class="progress-track"><div id="progress-bar"></div></div>
+      <p id="loading-text">برای شروع، دکمه زیر را بزن و به دوربین اجازه‌ی دسترسی بده</p>
+      <div class="progress-track hidden" id="progress-track"><div id="progress-bar"></div></div>
+      <button id="start-btn" class="primary-btn">🎥 شروع و باز کردن دوربین</button>
     </div>
   </div>
 
@@ -61,7 +62,7 @@
     id="ar-scene"
     mindar-image="imageTargetSrc: assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF:0.0001; filterBeta: 0.01;"
     color-space="sRGB"
-    renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, alpha: true"
+    renderer="colorManagement: true, physicallyCorrectLights"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
   >
