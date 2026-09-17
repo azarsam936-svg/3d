@@ -71,12 +71,6 @@
 
     <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false" raycaster="near: 10; far: 10000;"></a-camera>
 
-    <!--
-      MODEL_TARGET_INDEX must match the "targetIndex" the .mind file was
-      compiled with for the eye-marker.png image. With a single-target
-      .mind file (this project's default) that index is always 0.
-      See CARD_REGISTRY in script.js if you add more flashcards.
-    -->
     <a-entity id="eye-target" mindar-image-target="targetIndex: 0">
       <a-entity
         id="eye-model-entity"
@@ -87,7 +81,6 @@
         shadow="cast: true; receive: false"
       ></a-entity>
 
-      <!-- simple light rig so the GLB is never rendered flat black -->
       <a-entity light="type: ambient; intensity: 0.9; color: #ffffff"></a-entity>
       <a-entity light="type: directional; intensity: 0.7; color: #ffffff" position="0.5 1 1"></a-entity>
     </a-entity>
