@@ -15,7 +15,7 @@ const MODEL_SCALE = 0.5;       // فقط وقتی MODEL_AUTO_FIT=false باشد 
 const MODEL_POSITION_X = 0;    // جابه‌جایی چپ/راست نسبت به مرکز فلش‌کارت
 const MODEL_POSITION_Y = 0.15; // ارتفاع مدل بالای سطح فلش‌کارت
 const MODEL_POSITION_Z = 0;    // جابه‌جایی جلو/عقب نسبت به مرکز فلش‌کارت
-const MODEL_ROTATION_X = -90;  // چرخش حول محور X (برای مدل‌هایی که "به پشت خوابیده" اکسپورت شده‌اند معمولاً 90- یا 90 لازم است)
+const MODEL_ROTATION_X = 90;   // چرخش حول محور X (قبلاً 90- بود که باعث وارونه دیده شدن مدل می‌شد)
 const MODEL_ROTATION_Y = 0;    // چرخش حول محور Y
 const MODEL_ROTATION_Z = 0;    // چرخش حول محور Z
 
@@ -404,3 +404,4 @@ el("error-retry-btn").addEventListener("click", () => {
 });
 
 document.addEventListener("DOMContentLoaded", boot);
+ 
