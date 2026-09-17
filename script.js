@@ -15,8 +15,8 @@ const MODEL_ROTATION_X = 90;
 const MODEL_ROTATION_Y = 75;
 const MODEL_ROTATION_Z = 0;
 
-const MODEL_AUTO_FIT = true;
-const MODEL_TARGET_SIZE = 5;
+const MODEL_AUTO_FIT = false;  // غیرفعال کردن بزرگ‌نمایی خودکار
+const MODEL_TARGET_SIZE = 4;
 
 /* ---------------------------------------------------------------------------
    2) رجیستری فلش‌کارت‌ها
