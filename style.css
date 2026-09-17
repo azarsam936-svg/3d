@@ -31,11 +31,40 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ==========================================================================
+   ⭐ ویدیوی دوربین MindAR — باید تمام‌صفحه و پشت مدل سه‌بعدی باشه
+   MindAR خودش یه <video> به body اضافه می‌کنه. این استایل‌ها تضمین می‌کنن
+   که توی همه مرورگرها (مخصوصاً موبایل) درست نمایش داده بشه.
+   ========================================================================== */
+body > video {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  object-fit: cover !important;
+  z-index: 1 !important;       /* پشت صحنه AR، جلوی پس‌زمینه */
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  background: #000 !important;
+}
+
+/* ==========================================================================
+   صحنه AR — شفاف تا ویدیو از پشتش دیده بشه
+   ========================================================================== */
 a-scene {
   width: 100vw;
   height: 100vh;
   position: fixed;
   inset: 0;
+  z-index: 2;                  /* جلوی ویدیو */
+  background: transparent !important;
+}
+
+/* کانواس WebGL داخلی A-Frame هم باید شفاف بمونه */
+a-scene canvas {
+  background: transparent !important;
 }
 
 .hidden { display: none !important; }
