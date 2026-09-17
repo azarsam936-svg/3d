@@ -11,13 +11,27 @@
    واحد position بر حسب "واحد مارکر" است (مارکر یک مربع به ضلع 1 در نظر گرفته
    می‌شود)، rotation بر حسب درجه است.
 --------------------------------------------------------------------------- */
-const MODEL_SCALE = 0.5;       // مقیاس یکنواخت مدل (بزرگ/کوچک کردن چشم) — ۱۰ برابرِ مقدار قبلی (0.05)
+const MODEL_SCALE = 0.5;       // فقط وقتی MODEL_AUTO_FIT=false باشد استفاده می‌شود (بزرگ‌نمایی دستی)
 const MODEL_POSITION_X = 0;    // جابه‌جایی چپ/راست نسبت به مرکز فلش‌کارت
 const MODEL_POSITION_Y = 0.15; // ارتفاع مدل بالای سطح فلش‌کارت
 const MODEL_POSITION_Z = 0;    // جابه‌جایی جلو/عقب نسبت به مرکز فلش‌کارت
 const MODEL_ROTATION_X = -90;  // چرخش حول محور X (برای مدل‌هایی که "به پشت خوابیده" اکسپورت شده‌اند معمولاً 90- یا 90 لازم است)
 const MODEL_ROTATION_Y = 0;    // چرخش حول محور Y
 const MODEL_ROTATION_Z = 0;    // چرخش حول محور Z
+
+/* ---------------------------------------------------------------------------
+   بزرگ‌نمایی خودکار (رفع اشکال «۱۰ برابر هم کم بود»)
+   ----------------------------------------------------------------------------
+   دلیل اینکه هر بار عدد MODEL_SCALE را ۱۰ برابر می‌کردیم و باز هم کوچک بود
+   این است: فایل‌های GLB هرکدام با «واحد» متفاوتی ساخته/اکسپورت می‌شوند (مثلاً
+   بعضی مدل‌ها در مقیاس واقعی چند متری صادر می‌شوند)، پس یک عدد ثابت برای همه‌ی
+   مدل‌ها کار نمی‌کند. راه‌حل درست: به‌جای حدس زدن، ابعاد واقعی مدل (bounding
+   box) را بعد از بارگذاری اندازه می‌گیریم و خودمان مقیاس لازم را حساب می‌کنیم
+   تا بزرگ‌ترین ضلع مدل دقیقاً برابر MODEL_TARGET_SIZE (بر حسب واحد فلش‌کارت،
+   یعنی ۱ = هم‌عرض خودِ کارت) بشود.
+--------------------------------------------------------------------------- */
+const MODEL_AUTO_FIT = true;   // true = بزرگ‌نمایی خودکار بر اساس ابعاد واقعی مدل (پیشنهادی)
+const MODEL_TARGET_SIZE = 1.4; // اندازه‌ی هدف مدل نسبت به عرض فلش‌کارت — عدد بزرگ‌تر = مدل بزرگ‌تر (۱٫۴ یعنی کمی بزرگ‌تر از خودِ کارت)
 
 /* ---------------------------------------------------------------------------
    2) رجیستری فلش‌کارت‌ها — برای افزودن کارت‌های جدید (سلول گیاهی، قلب، مغز...)
@@ -149,8 +163,13 @@ function applyModelTransform() {
   modelEntity.setAttribute("scale", { x: cfg.scale, y: cfg.scale, z: cfg.scale });
 }
 
+let lastLoadedModelObject3D = null;
+
 function resetModelTransform() {
   applyModelTransform();
+  if (MODEL_AUTO_FIT && lastLoadedModelObject3D) {
+    applyAutoFitScale(el("eye-model-entity"), lastLoadedModelObject3D);
+  }
   const banner = el("status-banner");
   banner.textContent = "موقعیت مدل بازنشانی شد.";
   banner.classList.remove("hidden");
@@ -159,6 +178,53 @@ function resetModelTransform() {
     banner.classList.add("hidden");
     banner.style.background = "";
   }, 1400);
+}
+
+/* ---------------------------------------------------------------------------
+   رفع اشکالِ «تصویر دوربین به‌صورت خاکستری ثابت دیده می‌شود ولی ردیابی کار می‌کند»
+   ----------------------------------------------------------------------------
+   این دقیقاً یک باگِ شناخته‌شده در برخی نسخه‌های Safari/WKWebView (از جمله
+   iOS 18) است: جریان زنده‌ی دوربین واقعاً در حال پخش است و فریم‌های واقعی
+   دریافت می‌شود (برای همین ردیابیِ MindAR درست کار می‌کند — چون از همان
+   فریم‌ها برای پردازش استفاده می‌کند)، اما مرورگر به‌صورت بصری آن را روی
+   صفحه رندر (paint) نمی‌کند تا وقتی یک repaint واقعی اتفاق بیفتد (مثلاً
+   کاربر روی نوار آدرس مرورگر ضربه بزند). خودِ ویدیو توسط MindAR به‌صورت
+   پویا و بدون id به body اضافه می‌شود (body > video)، بنابراین اینجا با
+   یک سلکتور ساده پیدایش می‌کنیم و با یک تغییر جزئی و بی‌اثر روی استایلش
+   مرورگر را مجبور به رندر مجدد آن می‌کنیم.
+--------------------------------------------------------------------------- */
+function nudgeCameraVideoRepaint() {
+  const tryNudge = () => {
+    const camVideo = document.querySelector("body > video");
+    if (!camVideo) return;
+    camVideo.play().catch(() => {});
+    // اجبار به repaint: یک تغییر بی‌اثر ولی واقعی روی style
+    camVideo.style.transform = "translateZ(0)";
+    // eslint-disable-next-line no-unused-expressions
+    camVideo.offsetHeight; // خواندن layout باعث flush شدن استایل می‌شود
+    camVideo.style.opacity = "0.999999";
+    requestAnimationFrame(() => {
+      camVideo.style.opacity = "1";
+    });
+  };
+  // چند بار در فاصله‌های کوتاه امتحان می‌کنیم چون ممکن است اولین فریمِ واقعی
+  // کمی دیرتر از رویداد arReady برسد.
+  [100, 500, 1200, 2500].forEach((delay) => setTimeout(tryNudge, delay));
+}
+function applyAutoFitScale(modelEntity, object3D) {
+  try {
+    if (!object3D || !window.AFRAME || !AFRAME.THREE) return;
+    const box = new AFRAME.THREE.Box3().setFromObject(object3D);
+    const size = new AFRAME.THREE.Vector3();
+    box.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (!maxDim || !isFinite(maxDim)) return;
+    const factor = MODEL_TARGET_SIZE / maxDim;
+    modelEntity.setAttribute("scale", { x: factor, y: factor, z: factor });
+  } catch (e) {
+    // اگر محاسبه به هر دلیلی شکست خورد، همان مقیاس دستیِ MODEL_SCALE
+    // (که قبلاً توسط applyModelTransform اعمال شده) باقی می‌ماند.
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -174,9 +240,13 @@ function initScene(clearBootWatchdog) {
 
   // پیگیری بارگذاری مدل GLB
   let modelLoaded = false;
-  modelEntity.addEventListener("model-loaded", () => {
+  modelEntity.addEventListener("model-loaded", (evt) => {
     modelLoaded = true;
     setProgress(70);
+    if (MODEL_AUTO_FIT) {
+      lastLoadedModelObject3D = evt.detail && evt.detail.model;
+      applyAutoFitScale(modelEntity, lastLoadedModelObject3D);
+    }
   });
   modelEntity.addEventListener("model-error", () => {
     showError(
@@ -204,6 +274,7 @@ function initScene(clearBootWatchdog) {
       el("loading-screen").classList.add("hidden");
       statusBanner.classList.remove("hidden");
     }, 400);
+    nudgeCameraVideoRepaint();
   });
 
   sceneEl.addEventListener("arError", () => {
