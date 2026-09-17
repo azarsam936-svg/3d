@@ -59,7 +59,110 @@
   <!-- ===================== AR SCENE ===================== -->
   <a-scene
     id="ar-scene"
-    embedded
+    mindar-image="imageTargetSrc: assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF:0.0001; filterBeta: 0.01;"
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, alpha: true"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+  >
+    <a-assets>
+      <a-asset-item id="eye-model" src="assets/u.glb"></a-asset-item>
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false" raycaster="near: 10; far: 10000;"></a-camera>
+
+    <!--
+      MODEL_TARGET_INDEX must match the "targetIndex" the .mind file was
+      compiled with for the eye-marker.png image. With a single-target
+      .mind file (this project's default) that index is always 0.
+      See CARD_REGISTRY in script.js if you add more flashcards.
+    -->
+    <a-entity id="eye-target" mindar-image-target="targetIndex: 0">
+      <a-entity
+        id="eye-model-entity"
+        gltf-model="#eye-model"
+        position="0 0 0"
+        rotation="0 0 0"
+        scale="0.05 0.05 0.05"
+        shadow="cast: true; receive: false"
+      ></a-entity>
+
+      <!-- simple light rig so the GLB is never rendered flat black -->
+      <a-entity light="type: ambient; intensity: 0.9; color: #ffffff"></a-entity>
+      <a-entity light="type: directional; intensity: 0.7; color: #ffffff" position="0.5 1 1"></a-entity>
+    </a-entity>
+  </a-scene>
+
+  <!-- ===================== BOTTOM BAR ===================== -->
+  <footer id="bottom-bar">
+    <p id="bottom-hint">فلش‌کارت را مقابل دوربین قرار دهید</p>
+    <button id="reset-btn" class="secondary-btn">بازنشانی مدل</button>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>فلش‌کارت سه‌بعدی چشم | واقعیت افزوده</title>
+<meta name="description" content="فلش‌کارت آموزشی واقعیت افزوده — مدل سه‌بعدی چشم انسان" />
+<link rel="stylesheet" href="style.css" />
+
+<!-- A-Frame + MindAR image tracking (CDN, no build step / no npm needed) -->
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+</head>
+<body>
+
+  <!-- ===================== LOADING SCREEN ===================== -->
+  <div id="loading-screen">
+    <div class="loading-inner">
+      <div class="eye-spinner">
+        <div class="eye-spinner-iris"></div>
+      </div>
+      <p id="loading-text">در حال بارگذاری مدل سه‌بعدی...</p>
+      <div class="progress-track"><div id="progress-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- ===================== ERROR / PERMISSION SCREEN ===================== -->
+  <div id="error-screen" class="hidden">
+    <div class="error-inner">
+      <div class="error-icon">⚠️</div>
+      <p id="error-text">خطایی رخ داد.</p>
+      <button id="error-retry-btn" class="primary-btn">تلاش مجدد</button>
+    </div>
+  </div>
+
+  <!-- ===================== TOP BAR ===================== -->
+  <header id="top-bar">
+    <h1>🔬 فلش‌کارت سه‌بعدی چشم</h1>
+    <button id="help-btn" aria-label="راهنما">؟</button>
+  </header>
+
+  <!-- ===================== HELP MODAL ===================== -->
+  <div id="help-modal" class="hidden">
+    <div class="help-card">
+      <h2>راهنمای استفاده</h2>
+      <p>دوربین را به سمت تصویر روی فلش‌کارت بگیرید. با حرکت دادن فلش‌کارت، مدل سه‌بعدی نیز همراه آن حرکت می‌کند.</p>
+      <ul>
+        <li>فلش‌کارت را در نور کافی و صاف نگه دارید.</li>
+        <li>کل تصویر مارکر باید داخل کادر دوربین باشد.</li>
+        <li>در صورت گم شدن مدل، فلش‌کارت را کمی دورتر یا نزدیک‌تر کنید.</li>
+      </ul>
+      <button id="close-help-btn" class="primary-btn">متوجه شدم</button>
+    </div>
+  </div>
+
+  <!-- ===================== STATUS BANNER (target lost/found) ===================== -->
+  <div id="status-banner" class="hidden">تصویر فلش‌کارت را مقابل دوربین قرار دهید.</div>
+
+  <!-- ===================== AR SCENE ===================== -->
+  <a-scene
+    id="ar-scene"
     mindar-image="imageTargetSrc: assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF:0.0001; filterBeta: 0.01;"
     color-space="sRGB"
     renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, alpha: true"
