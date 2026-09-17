@@ -6,39 +6,20 @@
 
 /* ---------------------------------------------------------------------------
    1) قابل‌ویرایش‌ترین بخش فایل: مقیاس و موقعیت مدل سه‌بعدی
-   این مقادیر مستقیماً روی <a-entity id="eye-model-entity"> در index.html اعمال
-   می‌شوند. اعداد را تغییر بده و صفحه را رفرش کن تا نتیجه را ببینی.
-   واحد position بر حسب "واحد مارکر" است (مارکر یک مربع به ضلع 1 در نظر گرفته
-   می‌شود)، rotation بر حسب درجه است.
 --------------------------------------------------------------------------- */
-const MODEL_SCALE = 0.5;       // فقط وقتی MODEL_AUTO_FIT=false باشد استفاده می‌شود (بزرگ‌نمایی دستی)
-const MODEL_POSITION_X = 0;    // جابه‌جایی چپ/راست نسبت به مرکز فلش‌کارت
-const MODEL_POSITION_Y = 0.15; // ارتفاع مدل بالای سطح فلش‌کارت
-const MODEL_POSITION_Z = 0;    // جابه‌جایی جلو/عقب نسبت به مرکز فلش‌کارت
-const MODEL_ROTATION_X = 90;   // چرخش حول محور X (قبلاً 90- بود که باعث وارونه دیده شدن مدل می‌شد)
-const MODEL_ROTATION_Y = 0;    // چرخش حول محور Y
-const MODEL_ROTATION_Z = 0;    // چرخش حول محور Z
+const MODEL_SCALE = 0.5;
+const MODEL_POSITION_X = 0;
+const MODEL_POSITION_Y = 0.15;
+const MODEL_POSITION_Z = 0;
+const MODEL_ROTATION_X = 90;
+const MODEL_ROTATION_Y = 0;
+const MODEL_ROTATION_Z = 0;
+
+const MODEL_AUTO_FIT = true;
+const MODEL_TARGET_SIZE = 1.4;
 
 /* ---------------------------------------------------------------------------
-   بزرگ‌نمایی خودکار (رفع اشکال «۱۰ برابر هم کم بود»)
-   ----------------------------------------------------------------------------
-   دلیل اینکه هر بار عدد MODEL_SCALE را ۱۰ برابر می‌کردیم و باز هم کوچک بود
-   این است: فایل‌های GLB هرکدام با «واحد» متفاوتی ساخته/اکسپورت می‌شوند (مثلاً
-   بعضی مدل‌ها در مقیاس واقعی چند متری صادر می‌شوند)، پس یک عدد ثابت برای همه‌ی
-   مدل‌ها کار نمی‌کند. راه‌حل درست: به‌جای حدس زدن، ابعاد واقعی مدل (bounding
-   box) را بعد از بارگذاری اندازه می‌گیریم و خودمان مقیاس لازم را حساب می‌کنیم
-   تا بزرگ‌ترین ضلع مدل دقیقاً برابر MODEL_TARGET_SIZE (بر حسب واحد فلش‌کارت،
-   یعنی ۱ = هم‌عرض خودِ کارت) بشود.
---------------------------------------------------------------------------- */
-const MODEL_AUTO_FIT = true;   // true = بزرگ‌نمایی خودکار بر اساس ابعاد واقعی مدل (پیشنهادی)
-const MODEL_TARGET_SIZE = 1.4; // اندازه‌ی هدف مدل نسبت به عرض فلش‌کارت — عدد بزرگ‌تر = مدل بزرگ‌تر (۱٫۴ یعنی کمی بزرگ‌تر از خودِ کارت)
-
-/* ---------------------------------------------------------------------------
-   2) رجیستری فلش‌کارت‌ها — برای افزودن کارت‌های جدید (سلول گیاهی، قلب، مغز...)
-   اگر فایل targets.mind را با چند تصویر هدف در کنار هم کامپایل کنی، هر تصویر
-   یک targetIndex می‌گیرد (0، 1، 2 ...). کافی‌ست این آبجکت را گسترش بدهی و یک
-   <a-entity mindar-image-target="targetIndex: N"> متناظر در index.html اضافه کنی.
-   به بخش README.md → "افزودن فلش‌کارت جدید" مراجعه کن.
+   2) رجیستری فلش‌کارت‌ها
 --------------------------------------------------------------------------- */
 const CARD_REGISTRY = {
   0: {
@@ -49,19 +30,10 @@ const CARD_REGISTRY = {
     position: { x: MODEL_POSITION_X, y: MODEL_POSITION_Y, z: MODEL_POSITION_Z },
     rotation: { x: MODEL_ROTATION_X, y: MODEL_ROTATION_Y, z: MODEL_ROTATION_Z },
   },
-  // مثال برای کارت بعدی:
-  // 1: {
-  //   name: "سلول گیاهی",
-  //   markerImage: "assets/plant-cell-marker.png",
-  //   model: "assets/plant-cell.glb",
-  //   scale: 0.04,
-  //   position: { x: 0, y: 0.1, z: 0 },
-  //   rotation: { x: -90, y: 0, z: 0 },
-  // },
 };
 
 /* ============================================================================
-   از این خط به پایین، منطق برنامه است — نیازی به تغییر آن نیست.
+   از این خط به پایین، منطق برنامه است
    ============================================================================ */
 
 const el = (id) => document.getElementById(id);
@@ -72,7 +44,7 @@ const state = {
 };
 
 /* ---------------------------------------------------------------------------
-   بررسی پشتیبانی مرورگر پیش از هر کاری
+   بررسی پشتیبانی مرورگر
 --------------------------------------------------------------------------- */
 function browserSupportsAR() {
   const hasWebGL = (() => {
@@ -106,17 +78,7 @@ function setProgress(pct) {
 }
 
 /* ---------------------------------------------------------------------------
-   درخواست صریح دسترسی دوربین (پیام فارسی مناسب در صورت رد شدن)
-   ----------------------------------------------------------------------------
-   نکته‌ی مهم/رفع اشکال: در یک نسخه‌ی قبلی، این تابع بلافاصله بعد از گرفتن
-   مجوز، استریم را stop() می‌کرد و بعد MindAR جداگانه دوباره دوربین را باز
-   می‌کرد؛ همین "باز و بستنِ سریع" باعث می‌شد در برخی مرورگرهای موبایل ویدیوی
-   زنده نمایش داده نشود (پس‌زمینه‌ی خاکستری). اما حذفِ کاملِ این درخواست هم
-   خودش باعث شد که در برخی دستگاه‌ها بارگذاری هرگز کامل نشود. راه‌حل درست:
-   درخواست اولیه را نگه می‌داریم (چون بدون آن روند بارگذاری MindAR در برخی
-   مرورگرها به مشکل می‌خورد)، ولی دیگر فوراً stop() نمی‌کنیم — استریم را زنده
-   نگه می‌داریم تا وقتی MindAR واقعاً آماده شود (رویداد arReady)، و فقط در
-   آن لحظه (یا در صورت خطا/تایم‌اوت، برای پاک‌سازی) آزادش می‌کنیم.
+   درخواست دسترسی دوربین
 --------------------------------------------------------------------------- */
 let preflightStream = null;
 
@@ -126,7 +88,7 @@ async function requestCameraPermission() {
       video: { facingMode: { ideal: "environment" } },
       audio: false,
     });
-    preflightStream = stream; // عمداً اینجا stop نمی‌شود؛ نگاه کن به releasePreflightStream()
+    preflightStream = stream;
     state.cameraGranted = true;
     return true;
   } catch (err) {
@@ -152,7 +114,7 @@ function releasePreflightStream() {
 }
 
 /* ---------------------------------------------------------------------------
-   اعمال مقادیر Scale/Position/Rotation از تنظیمات بالای فایل روی مدل
+   اعمال مقادیر Scale/Position/Rotation
 --------------------------------------------------------------------------- */
 function applyModelTransform() {
   const cfg = CARD_REGISTRY[0];
@@ -181,36 +143,70 @@ function resetModelTransform() {
 }
 
 /* ---------------------------------------------------------------------------
-   رفع اشکالِ «تصویر دوربین به‌صورت خاکستری ثابت دیده می‌شود ولی ردیابی کار می‌کند»
+   ⭐ نمایش اجباری ویدیوی دوربین
    ----------------------------------------------------------------------------
-   این دقیقاً یک باگِ شناخته‌شده در برخی نسخه‌های Safari/WKWebView (از جمله
-   iOS 18) است: جریان زنده‌ی دوربین واقعاً در حال پخش است و فریم‌های واقعی
-   دریافت می‌شود (برای همین ردیابیِ MindAR درست کار می‌کند — چون از همان
-   فریم‌ها برای پردازش استفاده می‌کند)، اما مرورگر به‌صورت بصری آن را روی
-   صفحه رندر (paint) نمی‌کند تا وقتی یک repaint واقعی اتفاق بیفتد (مثلاً
-   کاربر روی نوار آدرس مرورگر ضربه بزند). خودِ ویدیو توسط MindAR به‌صورت
-   پویا و بدون id به body اضافه می‌شود (body > video)، بنابراین اینجا با
-   یک سلکتور ساده پیدایش می‌کنیم و با یک تغییر جزئی و بی‌اثر روی استایلش
-   مرورگر را مجبور به رندر مجدد آن می‌کنیم.
+   MindAR خودش یه <video> به body اضافه می‌کنه. توی بعضی مرورگرها این ویدیو
+   رندر نمی‌شه (باگ WebKit). اینجا با استایل دستی و اجبار به repaint، ویدیو
+   رو قابل مشاهده می‌کنیم.
 --------------------------------------------------------------------------- */
-function nudgeCameraVideoRepaint() {
-  const tryNudge = () => {
-    const camVideo = document.querySelector("body > video");
-    if (!camVideo) return;
-    camVideo.play().catch(() => {});
-    // اجبار به repaint: یک تغییر بی‌اثر ولی واقعی روی style
-    camVideo.style.transform = "translateZ(0)";
-    // eslint-disable-next-line no-unused-expressions
-    camVideo.offsetHeight; // خواندن layout باعث flush شدن استایل می‌شود
-    camVideo.style.opacity = "0.999999";
-    requestAnimationFrame(() => {
-      camVideo.style.opacity = "1";
-    });
-  };
-  // چند بار در فاصله‌های کوتاه امتحان می‌کنیم چون ممکن است اولین فریمِ واقعی
-  // کمی دیرتر از رویداد arReady برسد.
-  [100, 500, 1200, 2500].forEach((delay) => setTimeout(tryNudge, delay));
+function forceShowCameraVideo() {
+  const camVideo = document.querySelector("body > video");
+  if (!camVideo) return false;
+
+  // استایل‌های ضروری برای نمایش تمام‌صفحه
+  camVideo.style.position = "fixed";
+  camVideo.style.top = "0";
+  camVideo.style.left = "0";
+  camVideo.style.width = "100vw";
+  camVideo.style.height = "100vh";
+  camVideo.style.objectFit = "cover";
+  camVideo.style.zIndex = "-1";
+  camVideo.style.opacity = "1";
+  camVideo.style.visibility = "visible";
+  camVideo.style.display = "block";
+
+  // اطمینان از پخش
+  const playPromise = camVideo.play();
+  if (playPromise && playPromise.catch) {
+    playPromise.catch(() => {});
+  }
+
+  // اجبار به repaint
+  camVideo.style.transform = "translateZ(0)";
+  // eslint-disable-next-line no-unused-expressions
+  camVideo.offsetHeight;
+  camVideo.style.opacity = "0.999999";
+  requestAnimationFrame(() => {
+    camVideo.style.opacity = "1";
+  });
+
+  return true;
 }
+
+function nudgeCameraVideoRepaint() {
+  // چندین بار با فاصله‌های مختلف امتحان می‌کنیم چون ممکن است ویدیو با تأخیر
+  // به DOM اضافه شود یا اولین فریم دیر برسد.
+  const delays = [0, 100, 300, 600, 1000, 1500, 2500, 4000];
+  delays.forEach((delay) => {
+    setTimeout(() => {
+      if (!forceShowCameraVideo()) {
+        // اگه ویدیو پیدا نشد، بازم تلاش می‌کنیم
+        return;
+      }
+    }, delay);
+  });
+
+  // یه interval هم می‌ذاریم که اگه ویدیو دیرتر اضافه شد، سریع پیداش کنیم
+  let attempts = 0;
+  const intervalId = setInterval(() => {
+    attempts++;
+    const found = forceShowCameraVideo();
+    if (found || attempts > 40) {
+      clearInterval(intervalId);
+    }
+  }, 250);
+}
+
 function applyAutoFitScale(modelEntity, object3D) {
   try {
     if (!object3D || !window.AFRAME || !AFRAME.THREE) return;
@@ -222,13 +218,12 @@ function applyAutoFitScale(modelEntity, object3D) {
     const factor = MODEL_TARGET_SIZE / maxDim;
     modelEntity.setAttribute("scale", { x: factor, y: factor, z: factor });
   } catch (e) {
-    // اگر محاسبه به هر دلیلی شکست خورد، همان مقیاس دستیِ MODEL_SCALE
-    // (که قبلاً توسط applyModelTransform اعمال شده) باقی می‌ماند.
+    // در صورت خطا، همان مقیاس دستی باقی می‌مونه
   }
 }
 
 /* ---------------------------------------------------------------------------
-   راه‌اندازی صحنه MindAR پس از آماده شدن مدل و گرفتن مجوز دوربین
+   راه‌اندازی صحنه MindAR
 --------------------------------------------------------------------------- */
 function initScene(clearBootWatchdog) {
   const sceneEl = el("ar-scene");
@@ -239,9 +234,7 @@ function initScene(clearBootWatchdog) {
   applyModelTransform();
 
   // پیگیری بارگذاری مدل GLB
-  let modelLoaded = false;
   modelEntity.addEventListener("model-loaded", (evt) => {
-    modelLoaded = true;
     setProgress(70);
     if (MODEL_AUTO_FIT) {
       lastLoadedModelObject3D = evt.detail && evt.detail.model;
@@ -258,6 +251,8 @@ function initScene(clearBootWatchdog) {
   targetEntity.addEventListener("targetFound", () => {
     statusBanner.classList.add("hidden");
     el("bottom-hint").textContent = "فلش‌کارت شناسایی شد ✓";
+    // هر بار مارکر پیدا شد، ویدیو رو دوباره مجبور به نمایش کن
+    forceShowCameraVideo();
   });
   targetEntity.addEventListener("targetLost", () => {
     statusBanner.textContent = "تصویر فلش‌کارت را مقابل دوربین قرار دهید.";
@@ -266,7 +261,7 @@ function initScene(clearBootWatchdog) {
     el("bottom-hint").textContent = "فلش‌کارت را مقابل دوربین قرار دهید";
   });
 
-  // وقتی MindAR کاملاً آماده شد (دوربین گرفته شد و tracker بارگذاری شد)
+  // وقتی MindAR آماده شد
   sceneEl.addEventListener("arReady", () => {
     setProgress(100);
     setLoadingText("فلش‌کارت را مقابل دوربین قرار دهید");
@@ -274,20 +269,20 @@ function initScene(clearBootWatchdog) {
       el("loading-screen").classList.add("hidden");
       statusBanner.classList.remove("hidden");
     }, 400);
+
+    // ⭐ ویدیو رو نمایش بده (به جای releasePreflightStream)
     nudgeCameraVideoRepaint();
   });
 
   sceneEl.addEventListener("arError", () => {
     showError(
-      "دسترسی به دوربین ممکن نشد یا این مرورگر از واقعیت افزوده پشتیبانی نمی‌کند. مطمئن شوید دسترسی دوربین را برای این سایت اجازه داده‌اید (تنظیمات مرورگر ← Site settings ← Camera) و از Chrome یا Safari به‌روز استفاده کنید، سپس دوباره تلاش کنید."
+      "دسترسی به دوربین ممکن نشد یا این مرورگر از واقعیت افزوده پشتیبانی نمی‌کند. مطمئن شوید دسترسی دوربین را برای این سایت اجازه داده‌اید و از Chrome یا Safari به‌روز استفاده کنید."
     );
   });
 
   setProgress(85);
 
-  // اگر به هر دلیلی (مثلاً targets.mind هنوز جایگزین نشده) رویداد آماده‌بودن
-  // هرگز شلیک نشود، بعد از چند ثانیه پیام خطای مناسب نشان می‌دهیم به‌جای
-  // اینکه کاربر برای همیشه پشت صفحه‌ی بارگذاری بماند.
+  // تایم‌اوت اگه arReady نیومد
   const readyTimeout = setTimeout(() => {
     if (!el("loading-screen").classList.contains("hidden")) {
       releasePreflightStream();
@@ -302,10 +297,14 @@ function initScene(clearBootWatchdog) {
   sceneEl.addEventListener("arError", () => clearTimeout(readyTimeout), { once: true });
   sceneEl.addEventListener("arReady", () => clearBootWatchdog(), { once: true });
   sceneEl.addEventListener("arError", () => clearBootWatchdog(), { once: true });
-  sceneEl.addEventListener("arReady", () => releasePreflightStream(), { once: true });
+
+  // ⚠️ این خط حذف شد چون استریم رو قطع می‌کرد و ویدیو سیاه می‌شد:
+  // sceneEl.addEventListener("arReady", () => releasePreflightStream(), { once: true });
+
+  // فقط توی خطا استریم رو آزاد کن
   sceneEl.addEventListener("arError", () => releasePreflightStream(), { once: true });
 
-  // شروع MindAR (چون autoStart:false گذاشته‌ایم، خودمان کنترل شروع را داریم)
+  // شروع MindAR
   const startMindAR = () => {
     try {
       sceneEl.systems["mindar-image-system"].start();
@@ -324,7 +323,7 @@ function initScene(clearBootWatchdog) {
 }
 
 /* ---------------------------------------------------------------------------
-   محافظ کلی در برابر خطاهای غیرمنتظره (مثلاً فایل targets.mind نامعتبر)
+   محافظ کلی در برابر خطاهای غیرمنتظره
 --------------------------------------------------------------------------- */
 window.addEventListener("error", () => {
   if (el("error-screen") && el("error-screen").classList.contains("hidden") &&
@@ -356,17 +355,6 @@ async function boot() {
   setLoadingText("در حال بارگذاری مدل سه‌بعدی...");
   setProgress(40);
 
-  /* -------------------------------------------------------------------------
-     محافظ کلیِ کل فرآیند بارگذاری (رفع اشکال)
-     ---------------------------------------------------------------------
-     قبلاً یک تایم‌اوت فقط داخل initScene() تعریف شده بود، یعنی اگر صحنه‌ی
-     A-Frame اصلاً به رویداد "loaded" نمی‌رسید (مثلاً چون assets/targets.mind
-     هنوز فایل placeholder است یا مسیر assets/u.glb اشتباه است)، initScene()
-     هرگز اجرا نمی‌شد و در نتیجه هیچ تایم‌اوتی هم فعال نمی‌شد — کاربر برای
-     همیشه پشت صفحه‌ی «در حال بارگذاری مدل سه‌بعدی...» می‌ماند. این محافظِ
-     بیرونی از همین‌جا (قبل از منتظر ماندن برای رویداد "loaded") شروع می‌شود
-     و مستقل از initScene() است.
-  --------------------------------------------------------------------------- */
   const bootWatchdog = setTimeout(() => {
     if (!el("loading-screen").classList.contains("hidden")) {
       releasePreflightStream();
@@ -404,4 +392,3 @@ el("error-retry-btn").addEventListener("click", () => {
 });
 
 document.addEventListener("DOMContentLoaded", boot);
- 
