@@ -12,11 +12,11 @@ const MODEL_POSITION_X = 0;
 const MODEL_POSITION_Y = 0.15;
 const MODEL_POSITION_Z = 0;
 const MODEL_ROTATION_X = 90;
-const MODEL_ROTATION_Y = 0;
+const MODEL_ROTATION_Y = 75;
 const MODEL_ROTATION_Z = 0;
 
 const MODEL_AUTO_FIT = true;
-const MODEL_TARGET_SIZE = 1.4;
+const MODEL_TARGET_SIZE = 5;
 
 /* ---------------------------------------------------------------------------
    2) رجیستری فلش‌کارت‌ها
